@@ -1,0 +1,51 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy container app to Azure Web App - chickenapp
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to registry
+      uses: docker/login-action@v2
+      with:
+        registry: https://chickenapp.azurecr.io/
+        username: ${{ secrets.AzureAppService_ContainerUsername_94025f5aed8b4af1922da4db3047fe61 }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_171b23b6a8f14e33a75f36c6dfd6802a }}
+
+    - name: Build and push container image to registry
+      uses: docker/build-push-action@v3
+      with:
+        push: true
+        tags: chickenapp.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_94025f5aed8b4af1922da4db3047fe61 }}/chicken:${{ github.sha }}
+        file: ./Dockerfile
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'chickenapp'
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_bc7f25129a214516999e2f1cb58abd30 }}
+        images: 'chickenapp.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_94025f5aed8b4af1922da4db3047fe61 }}/chicken:${{ github.sha }}'
